@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  API_KEY: z.string().min(1),
-  API_BASE_URL: z.string().url().default("https://gnarly-unconcertable-fransisca.ngrok-free.dev"),
+  NEXT_PUBLIC_API_KEY: z.string().min(1),
+  NEXT_PUBLIC_API_BASE_URL: z.string().url(),
+  NEXT_PUBLIC_PHONE_NUMBER: z.string().optional(),
 });
 
 export const env = envSchema.parse({
-  API_KEY: process.env.API_KEY,
-  API_BASE_URL: process.env.API_BASE_URL,
+  NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY,
+  NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  NEXT_PUBLIC_PHONE_NUMBER: process.env.NEXT_PUBLIC_PHONE_NUMBER,
 });

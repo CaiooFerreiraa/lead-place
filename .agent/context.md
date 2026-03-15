@@ -7,7 +7,7 @@ Coletor de leads baseado em número de telefone. A aplicação permite seleciona
 - **Framework**: Next.js 15 (App Router)
 - **Runtime**: Bun
 - **Auth**: NextAuth.js (se necessário no futuro, por enquanto foco na API externa)
-- **UI**: shadcn/ui + Tailwind CSS
+- **UI**: shadcn/ui + Tailwind CSS + sonner (toasts)
 - **Linguagem**: TypeScript (strict mode)
 - **API Externa**: custom node API com headers `x-api-key`
 
@@ -86,3 +86,8 @@ sm: 640px, md: 768px, lg: 1024px, xl: 1280px.
 ## Histórico de Decisões
 - [2026-03-15] Inicialização — Criação do projeto com Next.js 15 e Bun.
 - [2026-03-15] API — Uso de headers `x-api-key` para comunicação com a API ngrok.
+- [2026-03-15] Tipagem — Ajuste no `onValueChange` do `Select` (@base-ui) para lidar com possível valor `null` e incompatibilidade de assinatura com `setState`.
+- [2026-03-15] UI/UX — Refatoração do LeadCollector para design "Luxury Sober" com animações fluidas, suporte a input livre para categorias e exportação CSV.
+- [2026-03-15] Documentação — Atualização dos tipos e repositórios para suportar slugs de cidades conforme nova versão da API.
+- [2026-03-15] Interface — Implementação de paginação client-side para exibição de leads, garantindo performance e melhor experiência em grandes listas.
+- [2026-03-15] Bug Fix — Correção de erro de hidratação no `Combobox` através da implementação correta da prop `render` do Base UI no `PopoverTrigger`.

@@ -94,3 +94,5 @@ sm: 640px, md: 768px, lg: 1024px, xl: 1280px.
 - [2026-03-15] Funcionalidade — Alteração do foco nos contatos; Adição do botão 'Ver no Maps', aproveitando o retorno do endereço nos leads, em substituição ao acesso do site de origem do diretório.
 - [2026-03-15] Interface e Funcionalidade — Adição de recurso para controle de Leads; Implementação de um check visual, salvo localmente (`localStorage`), para marcar se um lead já possui um site.
 - [2026-03-15] Funcionalidade — Adição de botão para "Ocultar / Excluir" um lead localmente que não é mais relevante ou ativo, persistido via `localStorage`.
+- [2026-03-15] Identidade Visual — Substituição do `favicon.ico` padrão do Next.js por um `icon.svg` personalizado seguindo a paleta Emerald Green e a estética Luxury Sober (ícone em camadas/dados).
+- [2026-03-15] Identidade Visual — Injeção do SVG unificado da logo também no Cabeçalho (Header Principal) da aplicação substituindo o placeholder original.

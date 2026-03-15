@@ -7,9 +7,14 @@ export default function Home() {
       <header className="border-b bg-white/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-8 h-8 shadow-sm rounded-lg">
+              <rect width="32" height="32" rx="8" fill="#0f172a" />
+              <g fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" transform="translate(4,4)">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" fill="#10b981" fillOpacity="0.1" />
+                <polyline points="2 12 12 17 22 12" />
+                <polyline points="2 17 12 22 22 17" />
+              </g>
+            </svg>
             <span className="font-display font-bold text-xl tracking-tight text-slate-900">LeadsCollector</span>
           </div>
           

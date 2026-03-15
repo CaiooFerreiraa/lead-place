@@ -91,3 +91,6 @@ sm: 640px, md: 768px, lg: 1024px, xl: 1280px.
 - [2026-03-15] Documentação — Atualização dos tipos e repositórios para suportar slugs de cidades conforme nova versão da API.
 - [2026-03-15] Interface — Implementação de paginação client-side para exibição de leads, garantindo performance e melhor experiência em grandes listas.
 - [2026-03-15] Bug Fix — Correção de erro de hidratação no `Combobox` através da implementação correta da prop `render` do Base UI no `PopoverTrigger`.
+- [2026-03-15] Funcionalidade — Alteração do foco nos contatos; Adição do botão 'Ver no Maps', aproveitando o retorno do endereço nos leads, em substituição ao acesso do site de origem do diretório.
+- [2026-03-15] Interface e Funcionalidade — Adição de recurso para controle de Leads; Implementação de um check visual, salvo localmente (`localStorage`), para marcar se um lead já possui um site.
+- [2026-03-15] Funcionalidade — Adição de botão para "Ocultar / Excluir" um lead localmente que não é mais relevante ou ativo, persistido via `localStorage`.

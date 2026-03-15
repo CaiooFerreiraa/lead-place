@@ -18,4 +18,5 @@ export interface Lead {
   url: string;
   category?: string;
   city?: string;
+  address?: string | null;
 }

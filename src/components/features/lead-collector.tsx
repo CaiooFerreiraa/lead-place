@@ -39,7 +39,9 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Send
+  Send,
+  Trash2,
+  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -60,7 +62,50 @@ export function LeadCollector() {
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
   const adminPhone = env.NEXT_PUBLIC_PHONE_NUMBER;
 
-  // Pagination State
+  // Site Status State
+  const [hasSite, setHasSite] = useState<Record<number, boolean>>({});
+  
+  // Hidden Leads State
+  const [hiddenLeads, setHiddenLeads] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem("leads_has_site");
+    if (saved) {
+      try {
+        setHasSite(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved site states", e);
+      }
+    }
+
+    const savedHidden = localStorage.getItem("leads_hidden");
+    if (savedHidden) {
+      try {
+        setHiddenLeads(JSON.parse(savedHidden));
+      } catch (e) {
+        console.error("Failed to parse saved hidden states", e);
+      }
+    }
+  }, []);
+
+  const toggleHasSite = (productId: number) => {
+    setHasSite(prev => {
+      const next = { ...prev, [productId]: !prev[productId] };
+      localStorage.setItem("leads_has_site", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const hideLead = (productId: number) => {
+    setHiddenLeads(prev => {
+      const next = { ...prev, [productId]: true };
+      localStorage.setItem("leads_hidden", JSON.stringify(next));
+      return next;
+    });
+    toast.success("Lead ocultado com sucesso");
+  };
+
+  // Pagination & Filtering State
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 6;
 
@@ -128,12 +173,13 @@ export function LeadCollector() {
   const handleDownloadCSV = () => {
     if (leads.length === 0) return;
     
-    const headers = ["Nome", "Telefone", "Canal", "URL"];
+    const headers = ["Nome", "Telefone", "Canal", "URL", "Endereço"];
     const rows = leads.map(l => [
-      l.name || "N/A",
+      l.name ? `"${l.name}"` : "N/A",
       l.phone || "PENDING",
       l.isWhatsapp ? "WhatsApp" : (l.phone ? "Landline" : "Pending"),
-      l.url
+      l.url,
+      l.address ? `"${l.address}"` : "N/A"
     ]);
     
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -148,9 +194,12 @@ export function LeadCollector() {
     document.body.removeChild(link);
   };
 
+  // Derived State (Visible Leads)
+  const visibleLeads = leads.filter(lead => !hiddenLeads[lead.productId]);
+
   // Pagination Logic
-  const totalPages = Math.ceil(leads.length / ITEMS_PER_PAGE);
-  const paginatedLeads = leads.slice(
+  const totalPages = Math.ceil(visibleLeads.length / ITEMS_PER_PAGE);
+  const paginatedLeads = visibleLeads.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -273,9 +322,9 @@ export function LeadCollector() {
           <div className="flex items-center justify-between px-2">
             <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
               <span className="block w-8 h-[2px] bg-slate-200" />
-              {leads.length > 0 ? `${leads.length} Resultados Encontrados` : "Painel de Resultados"}
+              {visibleLeads.length > 0 ? `${visibleLeads.length} Resultados Encontrados` : "Painel de Resultados"}
             </h2>
-            {leads.length > 0 && (
+            {visibleLeads.length > 0 && (
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -306,7 +355,7 @@ export function LeadCollector() {
                   </div>
                 ))}
               </motion.div>
-            ) : leads.length > 0 ? (
+            ) : visibleLeads.length > 0 ? (
               <motion.div
                 key="results"
                 initial={{ opacity: 0 }}
@@ -327,23 +376,63 @@ export function LeadCollector() {
                           <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
                             <Layers className="w-6 h-6" />
                           </div>
-                          <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase border-slate-100 text-slate-400 rounded-full px-3 py-1">
-                            ID: {lead.productId}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase border-slate-100 text-slate-400 rounded-full px-3 py-1">
+                              ID: {lead.productId}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Ocultar (Não existe mais/Irrelevante)"
+                              onClick={() => hideLead(lead.productId)}
+                              className="h-7 w-7 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            >
+                              <EyeOff className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="space-y-2 flex-1">
                           <h3 className="text-xl font-display font-bold text-slate-900 leading-tight group-hover:text-emerald-600 transition-colors uppercase truncate">
                             {lead.name || "Sem Nome Identificado"}
                           </h3>
-                          <a 
-                            href={lead.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-xs font-medium text-slate-400 hover:text-slate-600 inline-flex items-center gap-1.5 no-underline transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" /> Ver página fonte
-                          </a>
+                          <div className="flex items-center justify-between">
+                            {lead.address ? (
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address)}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-xs font-medium text-slate-400 hover:text-emerald-600 inline-flex items-center gap-1.5 no-underline transition-colors truncate max-w-[65%]"
+                                title={lead.address}
+                              >
+                                <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{lead.address}</span>
+                              </a>
+                            ) : (
+                              <a 
+                                href={lead.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-xs font-medium text-slate-400 hover:text-slate-600 inline-flex items-center gap-1.5 no-underline transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3 shrink-0" /> Ver página fonte
+                              </a>
+                            )}
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHasSite(lead.productId);
+                              }}
+                              className={`text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 shrink-0 border ${
+                                hasSite[lead.productId] 
+                                  ? "bg-slate-900 text-emerald-400 border-slate-900 shadow-sm" 
+                                  : "bg-transparent text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600"
+                              }`}
+                            >
+                              <Globe className="w-3.5 h-3.5" />
+                              {hasSite[lead.productId] ? "Com Site" : "S/ Site"}
+                            </button>
+                          </div>
                         </div>
 
                         <div className="pt-4 border-t border-slate-50 space-y-4">
@@ -420,7 +509,7 @@ export function LeadCollector() {
           </AnimatePresence>
 
           {/* Pagination Controls */}
-          {leads.length > ITEMS_PER_PAGE && (
+          {visibleLeads.length > ITEMS_PER_PAGE && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

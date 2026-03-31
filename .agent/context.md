@@ -96,3 +96,6 @@ sm: 640px, md: 768px, lg: 1024px, xl: 1280px.
 - [2026-03-15] Funcionalidade — Adição de botão para "Ocultar / Excluir" um lead localmente que não é mais relevante ou ativo, persistido via `localStorage`.
 - [2026-03-15] Identidade Visual — Substituição do `favicon.ico` padrão do Next.js por um `icon.svg` personalizado seguindo a paleta Emerald Green e a estética Luxury Sober (ícone em camadas/dados).
 - [2026-03-15] Identidade Visual — Injeção do SVG unificado da logo também no Cabeçalho (Header Principal) da aplicação substituindo o placeholder original.
+- [2026-03-15] Verificação de Código — Ambiente avaliado e perfeitamente compilável após adição das strict rules de TypeScript (`noImplicitAny`, `strictNullChecks`, `noImplicitReturns`, `noUncheckedIndexedAccess`) pelo usuário final no `tsconfig.json`.
+- [2026-03-31] Funcionalidade — Implementação de multi-seleção de regiões (cidades) através do novo componente `MultiCombobox`.
+- [2026-03-31] UX/UI — Agrupamento de cidades por Estado (UF) no seletor e agrupamento de resultados (leads) por cidade na listagem, melhorando a organização visual em buscas multi-região.

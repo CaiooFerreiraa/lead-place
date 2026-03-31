@@ -5,7 +5,7 @@ import { getMetadataUseCase, getLeadsUseCase, extractLeadUseCase } from "@/infra
 import { City, Category, Lead } from "@/domain/entities/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Combobox } from "@/components/ui/combobox";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,7 +50,7 @@ export function LeadCollector() {
   const [cities, setCities] = useState<City[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [categoryInput, setCategoryInput] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [metaLoading, setMetaLoading] = useState(true);
@@ -137,14 +137,34 @@ export function LeadCollector() {
     setLeads([]);
     
     try {
-      // Usar a categoria digitada ou a selecionada
-      const data = await getLeadsUseCase.execute(categoryInput, selectedCity);
-      if (data && data.length > 0) {
-        setLeads(data);
-        setCurrentPage(1); // Reset to first page on new search
-        toast.success(`${data.length} leads encontrados com sucesso`);
+      if (selectedCities.length === 0) {
+        // Search in all/default if none selected
+        const data = await getLeadsUseCase.execute(categoryInput);
+        if (data && data.length > 0) {
+          setLeads(data);
+          setCurrentPage(1);
+          toast.success(`${data.length} leads encontrados`);
+        } else {
+          toast.info("Nenhum lead encontrado");
+        }
       } else {
-        toast.info("Nenhum lead encontrado para este filtro");
+        // Search in multiple cities
+        const results = await Promise.all(
+          selectedCities.map(async citySlug => {
+            const data = await getLeadsUseCase.execute(categoryInput, citySlug);
+            const cityName = cities.find(c => (c.slug || c.id) === citySlug)?.name || citySlug;
+            return (data || []).map(lead => ({ ...lead, city: cityName }));
+          })
+        );
+        const combinedLeads = results.flat();
+        
+        if (combinedLeads.length > 0) {
+          setLeads(combinedLeads);
+          setCurrentPage(1);
+          toast.success(`${combinedLeads.length} leads encontrados em ${selectedCities.length} regiões`);
+        } else {
+          toast.info("Nenhum lead encontrado nessas regiões");
+        }
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -188,7 +208,7 @@ export function LeadCollector() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `leads_${categoryInput}_${selectedCity || 'geral'}.csv`);
+    link.setAttribute("download", `leads_${categoryInput}_${selectedCities.length > 0 ? selectedCities.join('-') : 'geral'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -208,6 +228,21 @@ export function LeadCollector() {
     setCurrentPage(page);
     window.scrollTo({ top: 400, behavior: "smooth" });
   };
+
+  // Group cities by State (UF)
+  const groupedCitiesData = cities.map(c => {
+    const match = c.name.match(/\((.*?)\)/);
+    const group = match ? match[1] : "Outros";
+    return { value: c.slug || c.id, label: c.name, group };
+  });
+
+  // Group leads for display headers
+  const leadsGroupedByCity = paginatedLeads.reduce((acc, lead) => {
+    const cityName = lead.city || "Geral";
+    if (!acc[cityName]) acc[cityName] = [];
+    acc[cityName].push(lead);
+    return acc;
+  }, {} as Record<string, Lead[]>);
 
   const handleSendWhatsApp = (lead: Lead) => {
     if (!lead.phone) return;
@@ -289,12 +324,12 @@ export function LeadCollector() {
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 z-10 text-slate-400 pointer-events-none">
                       <MapPin className="w-5 h-5" />
                     </div>
-                    <Combobox 
-                      options={cities.map(c => ({ value: c.slug || c.id, label: c.name }))}
-                      value={selectedCity}
-                      onValueChange={setSelectedCity}
+                    <MultiCombobox 
+                      options={groupedCitiesData}
+                      value={selectedCities}
+                      onValueChange={setSelectedCities}
                       disabled={metaLoading}
-                      placeholder={metaLoading ? "Carregando..." : "Todas as cidades"}
+                      placeholder={metaLoading ? "Carregando..." : "Escolher regiões..."}
                       className="h-16 pl-12 border-none bg-slate-50/50 focus-visible:ring-2 focus-visible:ring-emerald-500/20 rounded-2xl md:rounded-none text-lg font-medium shadow-none hover:bg-slate-100/50 transition-all"
                     />
                   </div>
@@ -355,136 +390,153 @@ export function LeadCollector() {
                   </div>
                 ))}
               </motion.div>
-            ) : visibleLeads.length > 0 ? (
+                        ) : visibleLeads.length > 0 ? (
               <motion.div
                 key="results"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                className="space-y-12"
               >
-                {paginatedLeads.map((lead, idx) => (
-                  <motion.div
-                    key={lead.productId}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="group"
-                  >
-                    <Card className="h-full border border-slate-100 bg-white hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 rounded-[2rem] overflow-hidden flex flex-col">
-                      <CardContent className="p-6 space-y-6 flex-1 flex flex-col">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                            <Layers className="w-6 h-6" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase border-slate-100 text-slate-400 rounded-full px-3 py-1">
-                              ID: {lead.productId}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Ocultar (Não existe mais/Irrelevante)"
-                              onClick={() => hideLead(lead.productId)}
-                              className="h-7 w-7 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                            >
-                              <EyeOff className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 flex-1">
-                          <h3 className="text-xl font-display font-bold text-slate-900 leading-tight group-hover:text-emerald-600 transition-colors uppercase truncate">
-                            {lead.name || "Sem Nome Identificado"}
-                          </h3>
-                          <div className="flex items-center justify-between">
-                            {lead.address ? (
-                              <a 
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address)}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-xs font-medium text-slate-400 hover:text-emerald-600 inline-flex items-center gap-1.5 no-underline transition-colors truncate max-w-[65%]"
-                                title={lead.address}
-                              >
-                                <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{lead.address}</span>
-                              </a>
-                            ) : (
-                              <a 
-                                href={lead.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-xs font-medium text-slate-400 hover:text-slate-600 inline-flex items-center gap-1.5 no-underline transition-colors"
-                              >
-                                <ExternalLink className="w-3 h-3 shrink-0" /> Ver página fonte
-                              </a>
-                            )}
-                            
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleHasSite(lead.productId);
-                              }}
-                              className={`text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 shrink-0 border ${
-                                hasSite[lead.productId] 
-                                  ? "bg-slate-900 text-emerald-400 border-slate-900 shadow-sm" 
-                                  : "bg-transparent text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600"
-                              }`}
-                            >
-                              <Globe className="w-3.5 h-3.5" />
-                              {hasSite[lead.productId] ? "Com Site" : "S/ Site"}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-50 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-slate-300 tracking-widest uppercase">Contato Principal</span>
-                            <div className="flex gap-2">
-                              {lead.isWhatsapp && (
-                                <Badge className="bg-emerald-500 text-white border-none text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md">WHATSAPP</Badge>
-                              )}
-                              {lead.phone && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  className="h-6 w-6 rounded-md hover:bg-emerald-50 hover:text-emerald-600"
-                                  onClick={() => {
-                                    setSelectedLeadForMessage(lead);
-                                    setIsMessageDialogOpen(true);
-                                  }}
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="min-h-[56px] flex items-center">
-                            {lead.phone ? (
-                              <div className="w-full flex items-center justify-between bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50">
-                                <div className="flex items-center gap-3">
-                                  <Phone className="w-4 h-4 text-emerald-500" />
-                                  <span className="font-mono text-lg font-bold text-slate-700">{lead.phone}</span>
+                {Object.entries(leadsGroupedByCity).map(([cityName, cityLeads], groupIdx) => (
+                  <div key={cityName} className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-xl font-display font-black text-slate-800 flex items-center gap-3">
+                        <MapPin className="w-5 h-5 text-emerald-500" />
+                        {cityName}
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-none font-bold">
+                          {cityLeads.length} leads nesta página
+                        </Badge>
+                      </h3>
+                      <div className="flex-1 h-px bg-slate-100" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {cityLeads.map((lead, idx) => (
+                        <motion.div
+                          key={lead.productId}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: (groupIdx * 0.1) + (idx * 0.05) }}
+                          className="group"
+                        >
+                          <Card className="h-full border border-slate-100 bg-white hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 rounded-[2rem] overflow-hidden flex flex-col">
+                            <CardContent className="p-6 space-y-6 flex-1 flex flex-col">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                                  <Layers className="w-6 h-6" />
                                 </div>
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase border-slate-100 text-slate-400 rounded-full px-3 py-1">
+                                    ID: {lead.productId}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    title="Ocultar (Não existe mais/Irrelevante)"
+                                    onClick={() => hideLead(lead.productId)}
+                                    className="h-7 w-7 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                  >
+                                    <EyeOff className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
                               </div>
-                            ) : (
-                              <Button 
-                                onClick={() => handleExtract(lead.productId)}
-                                disabled={extractionLoading[lead.productId]}
-                                className="w-full h-14 bg-slate-900 border-none rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all active:scale-95 text-sm uppercase tracking-wider"
-                              >
-                                {extractionLoading[lead.productId] ? (
-                                  <RefreshCw className="w-5 h-5 animate-spin" />
-                                ) : (
-                                  <>Sincronizar Dados <Zap className="w-4 h-4" /></>
-                                )}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+
+                              <div className="space-y-2 flex-1">
+                                <h3 className="text-xl font-display font-bold text-slate-900 leading-tight group-hover:text-emerald-600 transition-colors uppercase truncate">
+                                  {lead.name || "Sem Nome Identificado"}
+                                </h3>
+                                <div className="flex items-center justify-between">
+                                  {lead.address ? (
+                                    <a 
+                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address)}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="text-xs font-medium text-slate-400 hover:text-emerald-600 inline-flex items-center gap-1.5 no-underline transition-colors truncate max-w-[65%]"
+                                      title={lead.address}
+                                    >
+                                      <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{lead.address}</span>
+                                    </a>
+                                  ) : (
+                                    <a 
+                                      href={lead.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="text-xs font-medium text-slate-400 hover:text-slate-600 inline-flex items-center gap-1.5 no-underline transition-colors"
+                                    >
+                                      <ExternalLink className="w-3 h-3 shrink-0" /> Ver página fonte
+                                    </a>
+                                  )}
+                                  
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleHasSite(lead.productId);
+                                    }}
+                                    className={`text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 shrink-0 border ${
+                                      hasSite[lead.productId] 
+                                        ? "bg-slate-900 text-emerald-400 border-slate-900 shadow-sm" 
+                                        : "bg-transparent text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600"
+                                    }`}
+                                  >
+                                    <Globe className="w-3.5 h-3.5" />
+                                    {hasSite[lead.productId] ? "Com Site" : "S/ Site"}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="pt-4 border-t border-slate-50 space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black text-slate-300 tracking-widest uppercase">Contato Principal</span>
+                                  <div className="flex gap-2">
+                                    {lead.isWhatsapp && (
+                                      <Badge className="bg-emerald-500 text-white border-none text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md">WHATSAPP</Badge>
+                                    )}
+                                    {lead.phone && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="h-6 w-6 rounded-md hover:bg-emerald-50 hover:text-emerald-600"
+                                        onClick={() => {
+                                          setSelectedLeadForMessage(lead);
+                                          setIsMessageDialogOpen(true);
+                                        }}
+                                      >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="min-h-[56px] flex items-center">
+                                  {lead.phone ? (
+                                    <div className="w-full flex items-center justify-between bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/50">
+                                      <div className="flex items-center gap-3">
+                                        <Phone className="w-4 h-4 text-emerald-500" />
+                                        <span className="font-mono text-lg font-bold text-slate-700">{lead.phone}</span>
+                                      </div>
+                                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    </div>
+                                  ) : (
+                                    <Button 
+                                      onClick={() => handleExtract(lead.productId)}
+                                      disabled={extractionLoading[lead.productId]}
+                                      className="w-full h-14 bg-slate-900 border-none rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all active:scale-95 text-sm uppercase tracking-wider"
+                                    >
+                                      {extractionLoading[lead.productId] ? (
+                                        <RefreshCw className="w-5 h-5 animate-spin" />
+                                      ) : (
+                                        <>Sincronizar Dados <Zap className="w-4 h-4" /></>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </motion.div>
             ) : (
